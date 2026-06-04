@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Saurav's Wallet - Automated Personal Finance Dashboard</title>
+    <title>Sourav's Wallet - Automated Personal Finance Dashboard</title>
     <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
@@ -382,7 +382,7 @@
     <!-- Mobile Bottom Navigation -->
     <aside class="sidebar">
         <div class="logo">
-            <i class="fa-solid fa-wallet"></i> Saurav's Wallet
+            <i class="fa-solid fa-wallet"></i> Sourav's Wallet
         </div>
         <nav class="nav-menu">
             <a class="nav-item active" data-target="view-dashboard" data-title="Lifetime Overview">
@@ -598,16 +598,8 @@
 
         /* --- STATE MANAGEMENT --- */
         const defaultData = {
-            assets: { cash: 45000, bank: 250000, savings: 600000, investments: 150000, other: 75000 },
-            transactions: [
-                { id: 1, type: 'income', source: 'bank', date: '2026-06-01', category: 'Salary', description: 'Tech Corp Payment', amount: 250000 },
-                { id: 2, type: 'expense', source: 'bank', date: '2026-06-02', category: 'Rent', description: 'Apartment Rent', amount: 50000 },
-                { id: 3, type: 'expense', source: 'cash', date: '2026-06-03', category: 'Grocery', description: 'Imtiaz Super Market', amount: 25000 },
-                { id: 4, type: 'expense', source: 'bank', date: '2026-06-05', category: 'Electricity', description: 'K-Electric Bill', amount: 18000 },
-                { id: 5, type: 'income', source: 'bank', date: '2026-06-10', category: 'Freelancing', description: 'Upwork Project', amount: 60000 },
-                { id: 6, type: 'withdraw', source: 'bank', date: '2026-06-11', category: 'ATM Withdrawal', description: 'Cash for weekend', amount: 10000 },
-                { id: 7, type: 'expense', source: 'cash', date: '2026-06-15', category: 'Restaurant', description: 'Dinner with family', amount: 14000 }
-            ],
+            assets: { cash: 0, bank: 0, savings: 0, investments: 0, other: 0 },
+            transactions: [],
             theme: 'light'
         };
 
@@ -968,7 +960,7 @@
             const url = URL.createObjectURL(blob);
             const a = document.createElement("a");
             a.href = url;
-            a.download = `sauravs-wallet-backup-${new Date().toISOString().split("T")[0]}.json`;
+            a.download = `souravs-wallet-backup-${new Date().toISOString().split("T")[0]}.json`;
             a.click();
             URL.revokeObjectURL(url);
         };
