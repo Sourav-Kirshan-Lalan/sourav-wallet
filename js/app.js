@@ -66,7 +66,7 @@ const updateDashboard = () => {
 
     document.getElementById('val-wealth').innerText = formatPKR(totalWealth);
     
-    // Live synced asset metrics
+    // Replaced the duplicated savings logic with live synced asset metrics
     document.getElementById('val-bank').innerText = formatPKR(appData.assets.bank || 0);
     document.getElementById('val-cash').innerText = formatPKR(appData.assets.cash || 0);
     document.getElementById('val-savings').innerText = formatPKR(appData.assets.savings || 0);
@@ -168,7 +168,6 @@ const renderMonthInsights = () => {
         categoriesContainer.innerHTML = '<p style="color: var(--text-muted); font-size: 0.9rem; padding: 1rem 0;">No operational expense metrics captured for this month layout.</p>';
     }
 };
-
 const drawMonthGraphs = (expensesByCategory, dailyInc, dailyExp, daysInMonth) => {
     const isDark = document.documentElement.getAttribute('data-theme') === 'dark';
     const textColor = isDark ? '#94a3b8' : '#6b7280';
@@ -176,25 +175,14 @@ const drawMonthGraphs = (expensesByCategory, dailyInc, dailyExp, daysInMonth) =>
     
     const labels = Array.from({length: daysInMonth}, (_, i) => i + 1);
 
-    // Figure out if we are viewing the current month to stop the line at today
-    const picker = document.getElementById('insight-month-picker');
-    const [viewYear, viewMonth] = picker.value.split('-').map(Number);
-    const today = new Date();
-    const isCurrentMonth = today.getFullYear() === viewYear && today.getMonth() === (viewMonth - 1);
-    const currentDay = today.getDate();
-
     // Calculate CUMULATIVE Daily Net Cashflow
     const cumulativeNet = [];
     let runningTotal = 0;
     
     for(let i = 0; i < daysInMonth; i++) {
-        // Stop drawing the line if the day hasn't happened yet
-        if (isCurrentMonth && (i + 1) > currentDay) {
-            cumulativeNet.push(null); 
-        } else {
-            runningTotal += (dailyInc[i] || 0) - (dailyExp[i] || 0);
-            cumulativeNet.push(runningTotal);
-        }
+        // Add today's income and subtract today's expense from the running total
+        runningTotal += (dailyInc[i] || 0) - (dailyExp[i] || 0);
+        cumulativeNet.push(runningTotal);
     }
 
     const barCtx = document.getElementById('monthBarChart').getContext('2d');
@@ -214,13 +202,12 @@ const drawMonthGraphs = (expensesByCategory, dailyInc, dailyExp, daysInMonth) =>
                     borderWidth: 2,
                     tension: 0.3,
                     fill: true,
-                    // Dynamic dots: Green if positive, Red if negative, Transparent for future null days
-                    pointBackgroundColor: cumulativeNet.map(val => val === null ? 'transparent' : (val >= 0 ? '#10b981' : '#ef4444')),
+                    // Dynamic dots: Green if your running balance is positive, Red if you are in the negative
+                    pointBackgroundColor: cumulativeNet.map(val => val >= 0 ? '#10b981' : '#ef4444'),
                     pointBorderColor: isDark ? '#1e293b' : '#ffffff',
                     pointBorderWidth: 2,
                     pointRadius: 4,
-                    pointHoverRadius: 6,
-                    spanGaps: false // Ensures the line explicitly breaks at null values
+                    pointHoverRadius: 6
                 }
             ] 
         }, 
@@ -258,6 +245,7 @@ const drawMonthGraphs = (expensesByCategory, dailyInc, dailyExp, daysInMonth) =>
         options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { position: isMobile ? 'bottom' : 'right', labels: { color: textColor } } }, cutout: '70%' } 
     });
 };
+
 
 /* --- 3. ALL TRANSACTIONS VIEW --- */
 const renderAllTransactions = () => {
@@ -346,11 +334,8 @@ const updateCharts = () => {
     const currentMonth = new Date().getMonth();
     
     const labels = []; 
-    const netData = []; 
-    const incData = [];
-    const expData = [];
+    const netData = []; // Array to hold Income minus Expense
 
-    // Automatically syncs to the last 6 months based on the current date
     for(let i = 5; i >= 0; i--) {
         let m = currentMonth - i; 
         let y = new Date().getFullYear();
@@ -367,8 +352,7 @@ const updateCharts = () => {
             }
         });
         
-        incData.push(inc);
-        expData.push(exp);
+        // Calculate the net cashflow for the month (Income - Expense)
         netData.push(inc - exp);
     }
 
@@ -381,40 +365,19 @@ const updateCharts = () => {
             labels: labels, 
             datasets: [ 
                 { 
-                    label: 'Net Cashflow', 
+                    label: 'Net Cashflow (Income - Expense)', 
                     data: netData, 
-                    borderColor: '#3b82f6', // Blue
+                    borderColor: '#3b82f6', // Blue line to represent net balance
                     backgroundColor: 'rgba(59, 130, 246, 0.1)', 
                     borderWidth: 2, 
                     tension: 0.3,
                     fill: true,
+                    // Dynamic dots: Green if you saved money that month, Red if you overspent
                     pointBackgroundColor: netData.map(val => val >= 0 ? '#10b981' : '#ef4444'),
                     pointBorderColor: isDark ? '#1e293b' : '#ffffff',
                     pointBorderWidth: 2,
-                    pointRadius: 4,
-                    pointHoverRadius: 6
-                },
-                { 
-                    label: 'Income', 
-                    data: incData, 
-                    borderColor: '#10b981', // Green
-                    backgroundColor: 'transparent', // No fill to prevent clutter
-                    borderWidth: 2, 
-                    tension: 0.3,
-                    fill: false,
-                    pointBackgroundColor: '#10b981',
-                    pointRadius: 3
-                },
-                { 
-                    label: 'Expense', 
-                    data: expData, 
-                    borderColor: '#ef4444', // Red
-                    backgroundColor: 'transparent', // No fill to prevent clutter
-                    borderWidth: 2, 
-                    tension: 0.3,
-                    fill: false,
-                    pointBackgroundColor: '#ef4444',
-                    pointRadius: 3
+                    pointRadius: 5,
+                    pointHoverRadius: 7
                 }
             ] 
         }, 
@@ -463,4 +426,37 @@ const updateCategories = () => {
     sourceContainer.classList.add('active');
     
     if (type === 'withdraw') {
-   
+        sourceLabel.innerText = 'Withdraw From:';
+        sourceSelect.innerHTML = `
+            <option value="bank">Bank Account</option>
+            <option value="savings">Savings Account</option>
+        `;
+    } else {
+        sourceLabel.innerText = type === 'income' ? 'Deposit Into:' : 'Pay From:';
+        sourceSelect.innerHTML = `
+            <option value="bank">Bank Account</option>
+            <option value="cash">Cash in Hand</option>
+            <option value="savings">Savings Account</option>
+        `;
+    }
+};
+
+/* --- TRANSACTION SUBMISSION --- */
+document.getElementById('form-transaction').addEventListener('submit', (e) => {
+    e.preventDefault();
+    const type = document.getElementById('trans-type').value;
+    const source = document.getElementById('trans-source').value;
+    const amount = Number(document.getElementById('trans-amount').value) || 0;
+
+    if (type === 'income') {
+        appData.assets[source] = (Number(appData.assets[source]) || 0) + amount;
+    } else if (type === 'expense') {
+        appData.assets[source] = (Number(appData.assets[source]) || 0) - amount;
+    } else if (type === 'withdraw') {
+        appData.assets[source] = (Number(appData.assets[source]) || 0) - amount;
+        appData.assets.cash = (Number(appData.assets.cash) || 0) + amount;
+    }
+
+    appData.transactions.push({ 
+        id: Date.now(), 
+        t
