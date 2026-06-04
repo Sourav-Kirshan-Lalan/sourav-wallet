@@ -176,33 +176,36 @@ const drawMonthGraphs = (expensesByCategory, dailyInc, dailyExp, daysInMonth) =>
     
     const labels = Array.from({length: daysInMonth}, (_, i) => i + 1);
 
+    // Calculate Daily Net Cashflow (Income - Expense)
+    const dailyNet = [];
+    for(let i = 0; i < daysInMonth; i++) {
+        dailyNet.push((dailyInc[i] || 0) - (dailyExp[i] || 0));
+    }
+
     const barCtx = document.getElementById('monthBarChart').getContext('2d');
     if(charts.monthBar) charts.monthBar.destroy();
     
-    // Fixed: Daily Cashflow is now a Line Graph
+    // Single line chart for Daily Net Balance
     charts.monthBar = new Chart(barCtx, { 
         type: 'line', 
         data: { 
             labels: labels, 
             datasets: [ 
                 { 
-                    label: 'Income', 
-                    data: dailyInc, 
-                    borderColor: '#10b981', 
-                    backgroundColor: 'rgba(16, 185, 129, 0.1)',
+                    label: 'Net Daily Cashflow (Income - Expense)', 
+                    data: dailyNet, 
+                    borderColor: '#3b82f6', 
+                    backgroundColor: 'rgba(59, 130, 246, 0.1)',
                     borderWidth: 2,
                     tension: 0.3,
-                    fill: true
-                }, 
-                { 
-                    label: 'Expense', 
-                    data: dailyExp, 
-                    borderColor: '#ef4444', 
-                    backgroundColor: 'rgba(239, 68, 68, 0.1)',
-                    borderWidth: 2,
-                    tension: 0.3,
-                    fill: true
-                } 
+                    fill: true,
+                    // Dynamic dots: Green for positive/zero days, Red for negative days
+                    pointBackgroundColor: dailyNet.map(val => val >= 0 ? '#10b981' : '#ef4444'),
+                    pointBorderColor: isDark ? '#1e293b' : '#ffffff',
+                    pointBorderWidth: 2,
+                    pointRadius: 4,
+                    pointHoverRadius: 6
+                }
             ] 
         }, 
         options: { 
