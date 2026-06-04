@@ -345,16 +345,56 @@ const updateCharts = () => {
 
     const barCtx = document.getElementById('mainChart').getContext('2d');
     if(charts.bar) charts.bar.destroy();
+    
+    // Changed Historical Chart to a Line Graph
     charts.bar = new Chart(barCtx, { 
         type: 'line', 
         data: { 
             labels: labels, 
-            datasets: [ { label: 'Revenue Intake', data: incData, backgroundColor: '#10b981', borderRadius: 6 }, { label: 'Expense Loss Out', data: expData, backgroundColor: '#ef4444', borderRadius: 6 } ] 
+            datasets: [ 
+                { 
+                    label: 'Revenue Intake', 
+                    data: incData, 
+                    borderColor: '#10b981', 
+                    backgroundColor: 'rgba(16, 185, 129, 0.1)', 
+                    borderWidth: 2, 
+                    tension: 0.3,
+                    fill: true 
+                }, 
+                { 
+                    label: 'Expense Loss Out', 
+                    data: expData, 
+                    borderColor: '#ef4444', 
+                    backgroundColor: 'rgba(239, 68, 68, 0.1)', 
+                    borderWidth: 2, 
+                    tension: 0.3,
+                    fill: true 
+                } 
+            ] 
         }, 
-        options: { responsive: true, maintainAspectRatio: false, scales: { y: { ticks: { color: textColor }, grid: { color: isDark ? '#334155' : '#e5e7eb' } }, x: { ticks: { color: textColor }, grid: { display: false } } }, plugins: { legend: { labels: { color: textColor } } } } 
+        options: { 
+            responsive: true, 
+            maintainAspectRatio: false, 
+            scales: { 
+                y: { 
+                    ticks: { color: textColor }, 
+                    grid: { color: isDark ? '#334155' : '#e5e7eb' } 
+                }, 
+                x: { 
+                    ticks: { color: textColor }, 
+                    grid: { display: false } 
+                } 
+            }, 
+            plugins: { 
+                legend: { labels: { color: textColor } } 
+            },
+            interaction: {
+                mode: 'index',
+                intersect: false,
+            }
+        } 
     });
 };
-
 /* --- MODAL CONTROL --- */
 const openModal = (id) => {
     document.getElementById(id).classList.add('active');
