@@ -178,13 +178,54 @@ const drawMonthGraphs = (expensesByCategory, dailyInc, dailyExp, daysInMonth) =>
 
     const barCtx = document.getElementById('monthBarChart').getContext('2d');
     if(charts.monthBar) charts.monthBar.destroy();
+    
+    // Fixed: Daily Cashflow is now a Line Graph
     charts.monthBar = new Chart(barCtx, { 
-        type: 'bar', 
+        type: 'line', 
         data: { 
             labels: labels, 
-            datasets: [ { label: 'Income', data: dailyInc, backgroundColor: '#10b981', borderRadius: 4 }, { label: 'Expense', data: dailyExp, backgroundColor: '#ef4444', borderRadius: 4 } ] 
+            datasets: [ 
+                { 
+                    label: 'Income', 
+                    data: dailyInc, 
+                    borderColor: '#10b981', 
+                    backgroundColor: 'rgba(16, 185, 129, 0.1)',
+                    borderWidth: 2,
+                    tension: 0.3,
+                    fill: true
+                }, 
+                { 
+                    label: 'Expense', 
+                    data: dailyExp, 
+                    borderColor: '#ef4444', 
+                    backgroundColor: 'rgba(239, 68, 68, 0.1)',
+                    borderWidth: 2,
+                    tension: 0.3,
+                    fill: true
+                } 
+            ] 
         }, 
-        options: { responsive: true, maintainAspectRatio: false, scales: { y: { ticks: { color: textColor }, grid: { color: isDark ? '#334155' : '#e5e7eb' } }, x: { ticks: { color: textColor }, grid: { display: false } } }, plugins: { legend: { labels: { color: textColor } } } } 
+        options: { 
+            responsive: true, 
+            maintainAspectRatio: false, 
+            scales: { 
+                y: { 
+                    ticks: { color: textColor }, 
+                    grid: { color: isDark ? '#334155' : '#e5e7eb' } 
+                }, 
+                x: { 
+                    ticks: { color: textColor }, 
+                    grid: { display: false } 
+                } 
+            }, 
+            plugins: { 
+                legend: { labels: { color: textColor } } 
+            },
+            interaction: {
+                mode: 'index',
+                intersect: false,
+            }
+        } 
     });
 
     const pieCtx = document.getElementById('monthPieChart').getContext('2d');
@@ -313,6 +354,7 @@ const updateCharts = () => {
         options: { responsive: true, maintainAspectRatio: false, scales: { y: { ticks: { color: textColor }, grid: { color: isDark ? '#334155' : '#e5e7eb' } }, x: { ticks: { color: textColor }, grid: { display: false } } }, plugins: { legend: { labels: { color: textColor } } } } 
     });
 };
+
 /* --- MODAL CONTROL --- */
 const openModal = (id) => {
     document.getElementById(id).classList.add('active');
