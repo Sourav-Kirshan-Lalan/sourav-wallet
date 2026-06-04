@@ -168,6 +168,7 @@ const renderMonthInsights = () => {
         categoriesContainer.innerHTML = '<p style="color: var(--text-muted); font-size: 0.9rem; padding: 1rem 0;">No operational expense metrics captured for this month layout.</p>';
     }
 };
+
 const drawMonthGraphs = (expensesByCategory, dailyInc, dailyExp, daysInMonth) => {
     const isDark = document.documentElement.getAttribute('data-theme') === 'dark';
     const textColor = isDark ? '#94a3b8' : '#6b7280';
@@ -175,35 +176,31 @@ const drawMonthGraphs = (expensesByCategory, dailyInc, dailyExp, daysInMonth) =>
     
     const labels = Array.from({length: daysInMonth}, (_, i) => i + 1);
 
-    // Calculate CUMULATIVE Daily Net Cashflow
-    const cumulativeNet = [];
-    let runningTotal = 0;
-    
+    // Calculate Daily Net Cashflow (Income - Expense)
+    const dailyNet = [];
     for(let i = 0; i < daysInMonth; i++) {
-        // Add today's income and subtract today's expense from the running total
-        runningTotal += (dailyInc[i] || 0) - (dailyExp[i] || 0);
-        cumulativeNet.push(runningTotal);
+        dailyNet.push((dailyInc[i] || 0) - (dailyExp[i] || 0));
     }
 
     const barCtx = document.getElementById('monthBarChart').getContext('2d');
     if(charts.monthBar) charts.monthBar.destroy();
     
-    // Single line chart for Cumulative Net Balance
+    // Single line chart for Daily Net Balance
     charts.monthBar = new Chart(barCtx, { 
         type: 'line', 
         data: { 
             labels: labels, 
             datasets: [ 
                 { 
-                    label: 'Cumulative Monthly Cashflow', 
-                    data: cumulativeNet, 
+                    label: 'Net Daily Cashflow (Income - Expense)', 
+                    data: dailyNet, 
                     borderColor: '#3b82f6', 
                     backgroundColor: 'rgba(59, 130, 246, 0.1)',
                     borderWidth: 2,
                     tension: 0.3,
                     fill: true,
-                    // Dynamic dots: Green if your running balance is positive, Red if you are in the negative
-                    pointBackgroundColor: cumulativeNet.map(val => val >= 0 ? '#10b981' : '#ef4444'),
+                    // Dynamic dots: Green for positive/zero days, Red for negative days
+                    pointBackgroundColor: dailyNet.map(val => val >= 0 ? '#10b981' : '#ef4444'),
                     pointBorderColor: isDark ? '#1e293b' : '#ffffff',
                     pointBorderWidth: 2,
                     pointRadius: 4,
@@ -245,7 +242,6 @@ const drawMonthGraphs = (expensesByCategory, dailyInc, dailyExp, daysInMonth) =>
         options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { position: isMobile ? 'bottom' : 'right', labels: { color: textColor } } }, cutout: '70%' } 
     });
 };
-
 
 /* --- 3. ALL TRANSACTIONS VIEW --- */
 const renderAllTransactions = () => {
@@ -459,4 +455,8 @@ document.getElementById('form-transaction').addEventListener('submit', (e) => {
 
     appData.transactions.push({ 
         id: Date.now(), 
-        t
+        type: type, 
+        source: source, 
+        date: document.getElementById('trans-date').value, 
+        category: document.getElementById('trans-category').value, 
+        descrip
