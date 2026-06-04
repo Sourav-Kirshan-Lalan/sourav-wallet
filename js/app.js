@@ -346,7 +346,7 @@ const updateCharts = () => {
     const barCtx = document.getElementById('mainChart').getContext('2d');
     if(charts.bar) charts.bar.destroy();
     charts.bar = new Chart(barCtx, { 
-        type: 'bar', 
+        type: 'line', 
         data: { 
             labels: labels, 
             datasets: [ { label: 'Revenue Intake', data: incData, backgroundColor: '#10b981', borderRadius: 6 }, { label: 'Expense Loss Out', data: expData, backgroundColor: '#ef4444', borderRadius: 6 } ] 
