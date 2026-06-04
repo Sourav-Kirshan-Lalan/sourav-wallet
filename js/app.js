@@ -196,6 +196,123 @@ const drawMonthGraphs = (expensesByCategory, dailyInc, dailyExp, daysInMonth) =>
         }
     }
 
+    const drawMonthGraphs = (expensesByCategory, dailyInc, dailyExp, daysInMonth) => {
+    const isDark = document.documentElement.getAttribute('data-theme') === 'dark';
+    const textColor = isDark ? '#94a3b8' : '#6b7280';
+    const isMobile = window.innerWidth < 768; 
+    
+    const labels = Array.from({length: daysInMonth}, (_, i) => i + 1);
+
+    // Figure out if we are viewing the current month to stop the line at today
+    const picker = document.getElementById('insight-month-picker');
+    const [viewYear, viewMonth] = picker.value.split('-').map(Number);
+    const today = new Date();
+    const isCurrentMonth = today.getFullYear() === viewYear && today.getMonth() === (viewMonth - 1);
+    const currentDay = today.getDate();
+
+    // Calculate CUMULATIVE Daily Net Cashflow
+    const cumulativeNet = [];
+    let runningTotal = 0;
+    
+    for(let i = 0; i < daysInMonth; i++) {
+        // Stop drawing the line if the day hasn't happened yet
+        if (isCurrentMonth && (i + 1) > currentDay) {
+            cumulativeNet.push(null); 
+        } else {
+            runningTotal += (dailyInc[i] || 0) - (dailyExp[i] || 0);
+            cumulativeNet.push(runningTotal);
+        }
+    }
+
+    const barCtx = document.getElementById('monthBarChart').getContext('2d');
+    if(charts.monthBar) charts.monthBar.destroy();
+    
+    // Single line chart for Cumulative Net Balance
+    charts.monthBar = new Chart(barCtx, { 
+        type: 'line', 
+        data: { 
+            labels: labels, 
+            datasets: [ 
+                { 
+                    label: 'Cumulative Monthly Cashflow', 
+                    data: cumulativeNet, 
+                    borderColor: '#3b82f6', 
+                    backgroundColor: 'rgba(59, 130, 246, 0.1)',
+                    borderWidth: 2,
+                    tension: 0.3,
+                    fill: true,
+                    // Dynamic dots: Green if positive, Red if negative, Transparent for future null days
+                    pointBackgroundColor: cumulativeNet.map(val => val === null ? 'transparent' : (val >= 0 ? '#10b981' : '#ef4444')),
+                    pointBorderColor: isDark ? '#1e293b' : '#ffffff',
+                    pointBorderWidth: 2,
+                    pointRadius: 4,
+                    pointHoverRadius: 6,
+                    spanGaps: false // Ensures the line explicitly breaks at null values
+                }
+            ] 
+        }, 
+        options: { 
+            responsive: true, 
+            maintainAspectRatio: false, 
+            scales: { 
+                y: { 
+                    ticks: { color: textColor }, 
+                    grid: { color: isDark ? '#334155' : '#e5e7eb' } 
+                }, 
+                x: { 
+                    ticks: { color: textColor }, 
+                    grid: { display: false } 
+                } 
+            }, 
+            plugins: { 
+                legend: { labels: { color: textColor } } 
+            },
+            interaction: {
+                mode: 'index',
+                intersect: false,
+            }
+        } 
+    });
+
+    const pieCtx = document.getElementById('monthPieChart').getContext('2d');
+    if(charts.monthPie) charts.monthPie.destroy();
+    charts.monthPie = new Chart(pieCtx, { 
+        type: 'doughnut', 
+        data: { 
+            labels: Object.keys(expensesByCategory), 
+            datasets: [{ data: Object.values(expensesByCategory), backgroundColor: ['#10b981', '#3b82f6', '#f59e0b', '#ef4444', '#8b5cf6', '#ec4899', '#14b8a6'], borderWidth: 0 }] 
+        }, 
+        options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { position: isMobile ? 'bottom' : 'right', labels: { color: textColor } } }, cutout: '70%' } 
+    });
+};
+const drawMonthGraphs = (expensesByCategory, dailyInc, dailyExp, daysInMonth) => {
+    const isDark = document.documentElement.getAttribute('data-theme') === 'dark';
+    const textColor = isDark ? '#94a3b8' : '#6b7280';
+    const isMobile = window.innerWidth < 768; 
+    
+    const labels = Array.from({length: daysInMonth}, (_, i) => i + 1);
+
+    // Figure out if we are viewing the current month to stop the line at today
+    const picker = document.getElementById('insight-month-picker');
+    const [viewYear, viewMonth] = picker.value.split('-').map(Number);
+    const today = new Date();
+    const isCurrentMonth = today.getFullYear() === viewYear && today.getMonth() === (viewMonth - 1);
+    const currentDay = today.getDate();
+
+    // Calculate CUMULATIVE Daily Net Cashflow
+    const cumulativeNet = [];
+    let runningTotal = 0;
+    
+    for(let i = 0; i < daysInMonth; i++) {
+        // Stop drawing the line if the day hasn't happened yet
+        if (isCurrentMonth && (i + 1) > currentDay) {
+            cumulativeNet.push(null); 
+        } else {
+            runningTotal += (dailyInc[i] || 0) - (dailyExp[i] || 0);
+            cumulativeNet.push(runningTotal);
+        }
+    }
+
     const barCtx = document.getElementById('monthBarChart').getContext('2d');
     if(charts.monthBar) charts.monthBar.destroy();
     
