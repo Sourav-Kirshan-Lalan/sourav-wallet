@@ -293,7 +293,11 @@ const updateCharts = () => {
         let inc = 0, exp = 0;
         appData.transactions.forEach(t => {
             const d = new Date(t.date);
-            if(d.getMonth() === m && d.getFullYear() === y) { if(t.type === 'income') inc += t.amount; else exp += t.amount; }
+            if(d.getMonth() === m && d.getFullYear() === y) { 
+                // FIXED LOGIC HERE: Only track actual income and actual expenses
+                if(t.type === 'income') inc += t.amount; 
+                else if(t.type === 'expense') exp += t.amount; 
+            }
         });
         incData.push(inc); expData.push(exp);
     }
@@ -309,7 +313,6 @@ const updateCharts = () => {
         options: { responsive: true, maintainAspectRatio: false, scales: { y: { ticks: { color: textColor }, grid: { color: isDark ? '#334155' : '#e5e7eb' } }, x: { ticks: { color: textColor }, grid: { display: false } } }, plugins: { legend: { labels: { color: textColor } } } } 
     });
 };
-
 /* --- MODAL CONTROL --- */
 const openModal = (id) => {
     document.getElementById(id).classList.add('active');
