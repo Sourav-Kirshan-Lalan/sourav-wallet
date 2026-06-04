@@ -325,51 +325,53 @@ const updateCharts = () => {
 
     const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
     const currentMonth = new Date().getMonth();
-    const labels = []; const incData = []; const expData = [];
+    
+    const labels = []; 
+    const netData = []; // Array to hold Income minus Expense
 
-    for(let i=5; i>=0; i--) {
-        let m = currentMonth - i; let y = new Date().getFullYear();
+    for(let i = 5; i >= 0; i--) {
+        let m = currentMonth - i; 
+        let y = new Date().getFullYear();
         if(m < 0) { m += 12; y -= 1; }
+        
         labels.push(months[m]);
         let inc = 0, exp = 0;
+        
         appData.transactions.forEach(t => {
             const d = new Date(t.date);
             if(d.getMonth() === m && d.getFullYear() === y) { 
-                // FIXED LOGIC HERE: Only track actual income and actual expenses
                 if(t.type === 'income') inc += t.amount; 
                 else if(t.type === 'expense') exp += t.amount; 
             }
         });
-        incData.push(inc); expData.push(exp);
+        
+        // Calculate the net cashflow for the month (Income - Expense)
+        netData.push(inc - exp);
     }
 
     const barCtx = document.getElementById('mainChart').getContext('2d');
     if(charts.bar) charts.bar.destroy();
     
-    // Changed Historical Chart to a Line Graph
     charts.bar = new Chart(barCtx, { 
         type: 'line', 
         data: { 
             labels: labels, 
             datasets: [ 
                 { 
-                    label: 'Revenue Intake', 
-                    data: incData, 
-                    borderColor: '#10b981', 
-                    backgroundColor: 'rgba(16, 185, 129, 0.1)', 
+                    label: 'Net Cashflow (Income - Expense)', 
+                    data: netData, 
+                    borderColor: '#3b82f6', // Blue line to represent net balance
+                    backgroundColor: 'rgba(59, 130, 246, 0.1)', 
                     borderWidth: 2, 
                     tension: 0.3,
-                    fill: true 
-                }, 
-                { 
-                    label: 'Expense Loss Out', 
-                    data: expData, 
-                    borderColor: '#ef4444', 
-                    backgroundColor: 'rgba(239, 68, 68, 0.1)', 
-                    borderWidth: 2, 
-                    tension: 0.3,
-                    fill: true 
-                } 
+                    fill: true,
+                    // Dynamic dots: Green if you saved money that month, Red if you overspent
+                    pointBackgroundColor: netData.map(val => val >= 0 ? '#10b981' : '#ef4444'),
+                    pointBorderColor: isDark ? '#1e293b' : '#ffffff',
+                    pointBorderWidth: 2,
+                    pointRadius: 5,
+                    pointHoverRadius: 7
+                }
             ] 
         }, 
         options: { 
@@ -395,6 +397,7 @@ const updateCharts = () => {
         } 
     });
 };
+
 /* --- MODAL CONTROL --- */
 const openModal = (id) => {
     document.getElementById(id).classList.add('active');
