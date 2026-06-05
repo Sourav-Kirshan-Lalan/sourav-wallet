@@ -372,7 +372,7 @@ const updateCharts = () => {
         }
     });
 
-    /* ── Chart 2: Wealth Growth Line Chart (6 months) ── */
+   /* ── Chart 2: Wealth Growth Line Chart (6 months) ── */
     const wealthLabels = monthSlots.map(s => `${s.label} ${s.y}`);
     const wealthPoints = [];
 
@@ -426,6 +426,7 @@ const updateCharts = () => {
             interaction: { mode: 'index', intersect: false }
         }
     });
+};
 
 /* --- MODAL CONTROL --- */
 const openModal = (id) => {
