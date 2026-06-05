@@ -372,28 +372,16 @@ const updateCharts = () => {
         }
     });
 
-    /* ── Chart 2: Lifetime Wealth Growth Line Chart ── */
-    const allMonthsMap = {};
-    appData.transactions.forEach(t => {
-        const d = new Date(t.date);
-        const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
-        if (!allMonthsMap[key]) allMonthsMap[key] = { inc: 0, exp: 0 };
-        if (t.type === 'income') allMonthsMap[key].inc += t.amount;
-        else if (t.type === 'expense') allMonthsMap[key].exp += t.amount;
-    });
-
-    const sortedKeys = Object.keys(allMonthsMap).sort();
-    const wealthLabels = [];
+    /* ── Chart 2: Wealth Growth Line Chart (6 months) ── */
+    const wealthLabels = monthSlots.map(s => `${s.label} ${s.y}`);
     const wealthPoints = [];
 
     const currentWealth = Object.values(appData.assets).reduce((a, b) => a + b, 0);
-    const totalLifetimeNet = sortedKeys.reduce((sum, k) => sum + allMonthsMap[k].inc - allMonthsMap[k].exp, 0);
-    let runningWealth = currentWealth - totalLifetimeNet;
+    const totalNet = monthSlots.reduce((sum, s) => sum + s.inc - s.exp, 0);
+    let runningWealth = currentWealth - totalNet;
 
-    sortedKeys.forEach(key => {
-        const [y, m] = key.split('-');
-        wealthLabels.push(`${monthNames[parseInt(m) - 1]} ${y}`);
-        runningWealth += allMonthsMap[key].inc - allMonthsMap[key].exp;
+    monthSlots.forEach(s => {
+        runningWealth += s.inc - s.exp;
         wealthPoints.push(runningWealth);
     });
 
@@ -411,11 +399,11 @@ const updateCharts = () => {
                 borderWidth: 2.5,
                 tension: 0.4,
                 fill: true,
-                pointBackgroundColor: wealthPoints.map((v, i) => i === wealthPoints.length - 1 ? '#8b5cf6' : 'transparent'),
-                pointBorderColor: 'transparent',
-                pointRadius: wealthPoints.map((v, i) => i === wealthPoints.length - 1 ? 6 : 0),
-                pointHoverRadius: 6,
-                pointHoverBackgroundColor: '#8b5cf6',
+                pointBackgroundColor: '#8b5cf6',
+                pointBorderColor: isDark ? '#1e293b' : '#ffffff',
+                pointBorderWidth: 2,
+                pointRadius: 5,
+                pointHoverRadius: 7,
             }]
         },
         options: {
@@ -428,7 +416,7 @@ const updateCharts = () => {
                     beginAtZero: false
                 },
                 x: {
-                    ticks: { color: textColor, maxRotation: 45 },
+                    ticks: { color: textColor },
                     grid: { display: false }
                 }
             },
@@ -438,7 +426,6 @@ const updateCharts = () => {
             interaction: { mode: 'index', intersect: false }
         }
     });
-};
 
 /* --- MODAL CONTROL --- */
 const openModal = (id) => {
