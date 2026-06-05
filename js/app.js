@@ -175,14 +175,25 @@ const drawMonthGraphs = (expensesByCategory, dailyInc, dailyExp, daysInMonth) =>
     
     const labels = Array.from({length: daysInMonth}, (_, i) => i + 1);
 
+    // Figure out if we are viewing the current month to stop the line at today
+    const picker = document.getElementById('insight-month-picker');
+    const [viewYear, viewMonth] = picker.value.split('-').map(Number);
+    const today = new Date();
+    const isCurrentMonth = today.getFullYear() === viewYear && today.getMonth() === (viewMonth - 1);
+    const currentDay = today.getDate();
+
     // Calculate CUMULATIVE Daily Net Cashflow
     const cumulativeNet = [];
     let runningTotal = 0;
     
     for(let i = 0; i < daysInMonth; i++) {
-        // Add today's income and subtract today's expense from the running total
-        runningTotal += (dailyInc[i] || 0) - (dailyExp[i] || 0);
-        cumulativeNet.push(runningTotal);
+        // Stop drawing the line if the day hasn't happened yet
+        if (isCurrentMonth && (i + 1) > currentDay) {
+            cumulativeNet.push(null); 
+        } else {
+            runningTotal += (dailyInc[i] || 0) - (dailyExp[i] || 0);
+            cumulativeNet.push(runningTotal);
+        }
     }
 
     const barCtx = document.getElementById('monthBarChart').getContext('2d');
@@ -202,12 +213,13 @@ const drawMonthGraphs = (expensesByCategory, dailyInc, dailyExp, daysInMonth) =>
                     borderWidth: 2,
                     tension: 0.3,
                     fill: true,
-                    // Dynamic dots: Green if your running balance is positive, Red if you are in the negative
-                    pointBackgroundColor: cumulativeNet.map(val => val >= 0 ? '#10b981' : '#ef4444'),
+                    // Dynamic dots: Green if positive, Red if negative, Transparent for future null days
+                    pointBackgroundColor: cumulativeNet.map(val => val === null ? 'transparent' : (val >= 0 ? '#10b981' : '#ef4444')),
                     pointBorderColor: isDark ? '#1e293b' : '#ffffff',
                     pointBorderWidth: 2,
                     pointRadius: 4,
-                    pointHoverRadius: 6
+                    pointHoverRadius: 6,
+                    spanGaps: false // Ensures the line explicitly breaks at null values
                 }
             ] 
         }, 
@@ -245,6 +257,7 @@ const drawMonthGraphs = (expensesByCategory, dailyInc, dailyExp, daysInMonth) =>
         options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { position: isMobile ? 'bottom' : 'right', labels: { color: textColor } } }, cutout: '70%' } 
     });
 };
+
 
 
 /* --- 3. ALL TRANSACTIONS VIEW --- */
