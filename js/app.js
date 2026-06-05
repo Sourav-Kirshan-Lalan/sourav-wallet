@@ -344,45 +344,43 @@ const updateCharts = () => {
     });
 
     const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
-    const currentMonth = new Date().getMonth();
+    const now = new Date();
     
     const labels = []; 
-    const netData = [];
     const incomeData = [];
     const expenseData = [];
     const wealthData = [];
 
-    // Calculate running total wealth up to 5 months ago as starting point
-    let wealthBase = Object.values(appData.assets).reduce((a, b) => a + b, 0);
-    
-    // First pass: gather all 6 months of data
-    const monthsInfo = [];
-    for(let i = 5; i >= 0; i--) {
-        let m = currentMonth - i; 
-        let y = new Date().getFullYear();
-        if(m < 0) { m += 12; y -= 1; }
-        
+    // Build the 6 month slots with correct year
+    const monthSlots = [];
+    for (let i = 5; i >= 0; i--) {
+        const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
+        monthSlots.push({ m: d.getMonth(), y: d.getFullYear(), label: months[d.getMonth()] });
+    }
+
+    // Gather income/expense per slot
+    monthSlots.forEach(slot => {
         let inc = 0, exp = 0;
         appData.transactions.forEach(t => {
             const d = new Date(t.date);
-            if(d.getMonth() === m && d.getFullYear() === y) { 
-                if(t.type === 'income') inc += t.amount; 
-                else if(t.type === 'expense') exp += t.amount; 
+            if (d.getMonth() === slot.m && d.getFullYear() === slot.y) {
+                if (t.type === 'income') inc += t.amount;
+                else if (t.type === 'expense') exp += t.amount;
             }
         });
-        monthsInfo.push({ label: months[m], inc, exp });
-    }
+        slot.inc = inc;
+        slot.exp = exp;
+    });
 
-    // Compute cumulative wealth: start from (current wealth - sum of net cashflows)
-    const totalNet = monthsInfo.reduce((sum, mo) => sum + mo.inc - mo.exp, 0);
-    let runningWealth = wealthBase - totalNet;
+    // Reconstruct wealth per month end: start from current wealth minus future net flows
+    const totalNet = monthSlots.reduce((sum, s) => sum + s.inc - s.exp, 0);
+    let runningWealth = Object.values(appData.assets).reduce((a, b) => a + b, 0) - totalNet;
 
-    monthsInfo.forEach(({ label, inc, exp }) => {
-        runningWealth += (inc - exp);
-        labels.push(label);
-        incomeData.push(inc);
-        expenseData.push(exp);
-        netData.push(inc - exp);
+    monthSlots.forEach(slot => {
+        runningWealth += (slot.inc - slot.exp);
+        labels.push(slot.label);
+        incomeData.push(slot.inc);
+        expenseData.push(slot.exp);
         wealthData.push(runningWealth);
     });
 
@@ -392,7 +390,7 @@ const updateCharts = () => {
     charts.bar = new Chart(barCtx, { 
         type: 'line', 
         data: { 
-            labels: labels, 
+            labels,
             datasets: [ 
                 { 
                     label: 'Total Wealth',
@@ -438,21 +436,6 @@ const updateCharts = () => {
                     pointRadius: 5,
                     pointHoverRadius: 7,
                     yAxisID: 'y'
-                },
-                { 
-                    label: 'Net Cashflow',
-                    data: netData, 
-                    borderColor: '#3b82f6',
-                    backgroundColor: 'rgba(59, 130, 246, 0.08)', 
-                    borderWidth: 2, 
-                    tension: 0.3,
-                    fill: true,
-                    pointBackgroundColor: netData.map(val => val >= 0 ? '#10b981' : '#ef4444'),
-                    pointBorderColor: isDark ? '#1e293b' : '#ffffff',
-                    pointBorderWidth: 2,
-                    pointRadius: 5,
-                    pointHoverRadius: 7,
-                    yAxisID: 'y'
                 }
             ] 
         }, 
@@ -463,7 +446,7 @@ const updateCharts = () => {
                 y: { 
                     position: 'left',
                     ticks: { color: textColor }, 
-                    grid: { color: isDark ? '#334155' : '#e5e7eb' } 
+                    grid: { color: isDark ? '#334155' : '#e5e7eb' }
                 },
                 y1: {
                     position: 'right',
