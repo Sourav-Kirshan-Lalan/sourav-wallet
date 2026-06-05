@@ -13,7 +13,6 @@ document.querySelectorAll('.nav-item').forEach(item => {
         if(targetId === 'view-wealth') populateWealthForm();
         if(targetId === 'view-month-insight') renderMonthInsights();
         
-        // Trigger chart re-render to ensure they size correctly on tab switch
         if(targetId === 'view-dashboard') updateCharts();
         if(targetId === 'view-month-insight') renderMonthInsights(); 
     });
@@ -65,12 +64,9 @@ const updateDashboard = () => {
     });
 
     document.getElementById('val-wealth').innerText = formatPKR(totalWealth);
-    
-    // Replaced the duplicated savings logic with live synced asset metrics
     document.getElementById('val-bank').innerText = formatPKR(appData.assets.bank || 0);
     document.getElementById('val-cash').innerText = formatPKR(appData.assets.cash || 0);
     document.getElementById('val-savings').innerText = formatPKR(appData.assets.savings || 0);
-    
     document.getElementById('val-income').innerText = formatPKR(lifetimeIncome);
     document.getElementById('val-expense').innerText = formatPKR(lifetimeExpense);
 
@@ -168,6 +164,7 @@ const renderMonthInsights = () => {
         categoriesContainer.innerHTML = '<p style="color: var(--text-muted); font-size: 0.9rem; padding: 1rem 0;">No operational expense metrics captured for this month layout.</p>';
     }
 };
+
 const drawMonthGraphs = (expensesByCategory, dailyInc, dailyExp, daysInMonth) => {
     const isDark = document.documentElement.getAttribute('data-theme') === 'dark';
     const textColor = isDark ? '#94a3b8' : '#6b7280';
@@ -175,19 +172,16 @@ const drawMonthGraphs = (expensesByCategory, dailyInc, dailyExp, daysInMonth) =>
     
     const labels = Array.from({length: daysInMonth}, (_, i) => i + 1);
 
-    // Figure out if we are viewing the current month to stop the line at today
     const picker = document.getElementById('insight-month-picker');
     const [viewYear, viewMonth] = picker.value.split('-').map(Number);
     const today = new Date();
     const isCurrentMonth = today.getFullYear() === viewYear && today.getMonth() === (viewMonth - 1);
     const currentDay = today.getDate();
 
-    // Calculate CUMULATIVE Daily Net Cashflow
     const cumulativeNet = [];
     let runningTotal = 0;
     
     for(let i = 0; i < daysInMonth; i++) {
-        // Stop drawing the line if the day hasn't happened yet
         if (isCurrentMonth && (i + 1) > currentDay) {
             cumulativeNet.push(null); 
         } else {
@@ -199,7 +193,6 @@ const drawMonthGraphs = (expensesByCategory, dailyInc, dailyExp, daysInMonth) =>
     const barCtx = document.getElementById('monthBarChart').getContext('2d');
     if(charts.monthBar) charts.monthBar.destroy();
     
-    // Single line chart for Cumulative Net Balance
     charts.monthBar = new Chart(barCtx, { 
         type: 'line', 
         data: { 
@@ -213,13 +206,12 @@ const drawMonthGraphs = (expensesByCategory, dailyInc, dailyExp, daysInMonth) =>
                     borderWidth: 2,
                     tension: 0.3,
                     fill: true,
-                    // Dynamic dots: Green if positive, Red if negative, Transparent for future null days
                     pointBackgroundColor: cumulativeNet.map(val => val === null ? 'transparent' : (val >= 0 ? '#10b981' : '#ef4444')),
                     pointBorderColor: isDark ? '#1e293b' : '#ffffff',
                     pointBorderWidth: 2,
                     pointRadius: 4,
                     pointHoverRadius: 6,
-                    spanGaps: false // Ensures the line explicitly breaks at null values
+                    spanGaps: false
                 }
             ] 
         }, 
@@ -227,22 +219,11 @@ const drawMonthGraphs = (expensesByCategory, dailyInc, dailyExp, daysInMonth) =>
             responsive: true, 
             maintainAspectRatio: false, 
             scales: { 
-                y: { 
-                    ticks: { color: textColor }, 
-                    grid: { color: isDark ? '#334155' : '#e5e7eb' } 
-                }, 
-                x: { 
-                    ticks: { color: textColor }, 
-                    grid: { display: false } 
-                } 
+                y: { ticks: { color: textColor }, grid: { color: isDark ? '#334155' : '#e5e7eb' } }, 
+                x: { ticks: { color: textColor }, grid: { display: false } } 
             }, 
-            plugins: { 
-                legend: { labels: { color: textColor } } 
-            },
-            interaction: {
-                mode: 'index',
-                intersect: false,
-            }
+            plugins: { legend: { labels: { color: textColor } } },
+            interaction: { mode: 'index', intersect: false }
         } 
     });
 
@@ -257,8 +238,6 @@ const drawMonthGraphs = (expensesByCategory, dailyInc, dailyExp, daysInMonth) =>
         options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { position: isMobile ? 'bottom' : 'right', labels: { color: textColor } } }, cutout: '70%' } 
     });
 };
-
-
 
 /* --- 3. ALL TRANSACTIONS VIEW --- */
 const renderAllTransactions = () => {
@@ -289,7 +268,6 @@ const deleteTx = (id) => {
         const txToDelete = appData.transactions.find(t => t.id === id);
         if (txToDelete) {
             const src = txToDelete.source || 'bank'; 
-            
             if (txToDelete.type === 'income') {
                 appData.assets[src] -= txToDelete.amount;
             } else if (txToDelete.type === 'expense') {
@@ -327,33 +305,17 @@ const saveWealth = () => {
 const updateCharts = () => {
     const isDark = document.documentElement.getAttribute('data-theme') === 'dark';
     const textColor = isDark ? '#94a3b8' : '#6b7280';
-    const isMobile = window.innerWidth < 768; 
-
-    const expensesByCategory = {};
-    appData.transactions.forEach(t => { if(t.type === 'expense') expensesByCategory[t.category] = (expensesByCategory[t.category] || 0) + t.amount; });
-
-    const pieCtx = document.getElementById('pieChart').getContext('2d');
-    if(charts.pie) charts.pie.destroy();
-    charts.pie = new Chart(pieCtx, { 
-        type: 'doughnut', 
-        data: { 
-            labels: Object.keys(expensesByCategory), 
-            datasets: [{ data: Object.values(expensesByCategory), backgroundColor: ['#10b981', '#3b82f6', '#f59e0b', '#ef4444', '#8b5cf6', '#ec4899', '#14b8a6'], borderWidth: 0 }] 
-        }, 
-        options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { position: isMobile ? 'bottom' : 'right', labels: { color: textColor } } }, cutout: '70%' } 
-    });
-
-    const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+    const isMobile = window.innerWidth < 768;
+    const monthNames = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
     const now = new Date();
 
-    // Build 6 month slots with correct year handling
+    /* ── Chart 1: Income vs Expense Bar Chart (6 months) ── */
     const monthSlots = [];
     for (let i = 5; i >= 0; i--) {
         const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
-        monthSlots.push({ m: d.getMonth(), y: d.getFullYear(), label: months[d.getMonth()], inc: 0, exp: 0 });
+        monthSlots.push({ m: d.getMonth(), y: d.getFullYear(), label: monthNames[d.getMonth()], inc: 0, exp: 0 });
     }
 
-    // Populate income & expense per slot
     appData.transactions.forEach(t => {
         const d = new Date(t.date);
         const slot = monthSlots.find(s => s.m === d.getMonth() && s.y === d.getFullYear());
@@ -362,21 +324,16 @@ const updateCharts = () => {
         else if (t.type === 'expense') slot.exp += t.amount;
     });
 
-    const labels = monthSlots.map(s => s.label);
-    const incomeData = monthSlots.map(s => s.inc);
-    const expenseData = monthSlots.map(s => s.exp);
-
     const barCtx = document.getElementById('mainChart').getContext('2d');
-    if(charts.bar) charts.bar.destroy();
-    
+    if (charts.bar) charts.bar.destroy();
     charts.bar = new Chart(barCtx, {
         type: 'bar',
         data: {
-            labels,
+            labels: monthSlots.map(s => s.label),
             datasets: [
                 {
                     label: 'Income',
-                    data: incomeData,
+                    data: monthSlots.map(s => s.inc),
                     backgroundColor: 'rgba(16, 185, 129, 0.85)',
                     borderColor: '#10b981',
                     borderWidth: 0,
@@ -385,7 +342,7 @@ const updateCharts = () => {
                 },
                 {
                     label: 'Expense',
-                    data: expenseData,
+                    data: monthSlots.map(s => s.exp),
                     backgroundColor: 'rgba(239, 68, 68, 0.85)',
                     borderColor: '#ef4444',
                     borderWidth: 0,
@@ -411,10 +368,74 @@ const updateCharts = () => {
             plugins: {
                 legend: { labels: { color: textColor } }
             },
-            interaction: {
-                mode: 'index',
-                intersect: false,
-            }
+            interaction: { mode: 'index', intersect: false }
+        }
+    });
+
+    /* ── Chart 2: Lifetime Wealth Growth Line Chart ── */
+    const allMonthsMap = {};
+    appData.transactions.forEach(t => {
+        const d = new Date(t.date);
+        const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
+        if (!allMonthsMap[key]) allMonthsMap[key] = { inc: 0, exp: 0 };
+        if (t.type === 'income') allMonthsMap[key].inc += t.amount;
+        else if (t.type === 'expense') allMonthsMap[key].exp += t.amount;
+    });
+
+    const sortedKeys = Object.keys(allMonthsMap).sort();
+    const wealthLabels = [];
+    const wealthPoints = [];
+
+    const currentWealth = Object.values(appData.assets).reduce((a, b) => a + b, 0);
+    const totalLifetimeNet = sortedKeys.reduce((sum, k) => sum + allMonthsMap[k].inc - allMonthsMap[k].exp, 0);
+    let runningWealth = currentWealth - totalLifetimeNet;
+
+    sortedKeys.forEach(key => {
+        const [y, m] = key.split('-');
+        wealthLabels.push(`${monthNames[parseInt(m) - 1]} ${y}`);
+        runningWealth += allMonthsMap[key].inc - allMonthsMap[key].exp;
+        wealthPoints.push(runningWealth);
+    });
+
+    const pieCtx = document.getElementById('pieChart').getContext('2d');
+    if (charts.pie) charts.pie.destroy();
+    charts.pie = new Chart(pieCtx, {
+        type: 'line',
+        data: {
+            labels: wealthLabels,
+            datasets: [{
+                label: 'Total Wealth',
+                data: wealthPoints,
+                borderColor: '#8b5cf6',
+                backgroundColor: 'rgba(139, 92, 246, 0.1)',
+                borderWidth: 2.5,
+                tension: 0.4,
+                fill: true,
+                pointBackgroundColor: wealthPoints.map((v, i) => i === wealthPoints.length - 1 ? '#8b5cf6' : 'transparent'),
+                pointBorderColor: 'transparent',
+                pointRadius: wealthPoints.map((v, i) => i === wealthPoints.length - 1 ? 6 : 0),
+                pointHoverRadius: 6,
+                pointHoverBackgroundColor: '#8b5cf6',
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            scales: {
+                y: {
+                    ticks: { color: textColor },
+                    grid: { color: isDark ? '#334155' : '#e5e7eb' },
+                    beginAtZero: false
+                },
+                x: {
+                    ticks: { color: textColor, maxRotation: 45 },
+                    grid: { display: false }
+                }
+            },
+            plugins: {
+                legend: { labels: { color: textColor } }
+            },
+            interaction: { mode: 'index', intersect: false }
         }
     });
 };
@@ -486,6 +507,7 @@ document.getElementById('form-transaction').addEventListener('submit', (e) => {
     e.target.reset();
 });
 
+/* --- EXPORT / IMPORT --- */
 const exportData = () => {
     const dataStr = JSON.stringify(appData, null, 2);
     const blob = new Blob([dataStr], { type: "application/json" });
@@ -521,6 +543,7 @@ const importData = (event) => {
     event.target.value = "";
 };
 
+/* --- THEME --- */
 const toggleTheme = () => {
     const html = document.documentElement;
     const newTheme = html.getAttribute('data-theme') === 'light' ? 'dark' : 'light';
@@ -530,12 +553,13 @@ const toggleTheme = () => {
     updateCharts();
 };
 
-// Event listener to fix chart resizing on window resize
+/* --- RESIZE HANDLER --- */
 window.addEventListener('resize', () => {
     if(document.getElementById('view-dashboard').classList.contains('active')) updateCharts();
     if(document.getElementById('view-month-insight').classList.contains('active')) renderMonthInsights();
 });
 
+/* --- INIT --- */
 document.documentElement.setAttribute('data-theme', appData.theme || 'light');
 updateCategories(); 
 updateDashboard();
