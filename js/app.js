@@ -60,10 +60,18 @@ const getSourceIcon = (source) => {
     return '<i class="fa-solid fa-vault"></i> Asset';
 };
 
+/* --- GLOBAL REFRESH FIX --- */
 const saveData = () => {
     localStorage.setItem('pkrFinDash', JSON.stringify(appData));
+    
+    // Always update the lifetime dashboard and ledger background data
     updateDashboard();
     renderAllTransactions();
+    
+    // FIX: Force the Monthly tab to redraw instantly if the user is currently looking at it
+    if (document.getElementById('view-month-insight').classList.contains('active')) {
+        renderMonthInsights();
+    }
 };
 
 /* --- 1. LIFETIME DASHBOARD UPDATES --- */
@@ -87,7 +95,11 @@ const updateDashboard = () => {
     document.getElementById('val-expense').innerText = formatPKR(lifetimeExpense);
 
     renderRecentTransactions();
-    updateCharts();
+    
+    // Only update the Lifetime charts if the Lifetime tab is active to prevent rendering errors
+    if (document.getElementById('view-dashboard').classList.contains('active')) {
+        updateCharts();
+    }
 };
 
 const renderRecentTransactions = () => {
@@ -448,19 +460,4 @@ const updateCategories = () => {
     
     if (type === 'withdraw') {
         sourceLabel.innerText = 'Withdraw From:';
-        sourceSelect.innerHTML = `
-            <option value="bank">Bank Account</option>
-            <option value="savings">Savings Account</option>
-        `;
-    } else {
-        sourceLabel.innerText = type === 'income' ? 'Deposit Into:' : 'Pay From:';
-        sourceSelect.innerHTML = `
-            <option value="bank">Bank Account</option>
-            <option value="cash">Cash in Hand</option>
-            <option value="savings">Savings Account</option>
-        `;
-    }
-};
-
-/* --- TRANSACTION SUBMISSION --- */
-document.getElementBy
+        sourceSelec
