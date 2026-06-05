@@ -19,7 +19,7 @@ document.querySelectorAll('.nav-item').forEach(item => {
     });
 });
 
-/* --- STATE MANAGEMENT --- */
+/* --- STATE MANAGEMENT & SAFETY NET --- */
 const defaultData = {
     assets: { cash: 0, bank: 0, savings: 0, investments: 0, other: 0 },
     transactions: [],
@@ -32,7 +32,19 @@ const categories = {
     withdraw: ['ATM Withdrawal', 'Bank Branch', 'Cheque']
 };
 
-let appData = JSON.parse(localStorage.getItem('pkrFinDash')) || defaultData;
+// Bulletproof loader: Prevents crashes if old/incompatible data exists in the browser
+let appData = defaultData;
+try {
+    const saved = JSON.parse(localStorage.getItem('pkrFinDash'));
+    if (saved && saved.assets && typeof saved.assets.cash !== 'undefined') {
+        appData = saved;
+    } else {
+        localStorage.removeItem('pkrFinDash');
+    }
+} catch (e) {
+    localStorage.removeItem('pkrFinDash');
+}
+
 let charts = {};
 
 const formatPKR = (amount) => new Intl.NumberFormat('en-PK', { style: 'currency', currency: 'PKR', minimumFractionDigits: 0 }).format(amount);
@@ -66,7 +78,7 @@ const updateDashboard = () => {
 
     document.getElementById('val-wealth').innerText = formatPKR(totalWealth);
     
-    // Replaced the duplicated savings logic with live synced asset metrics
+    // Live synced asset metrics
     document.getElementById('val-bank').innerText = formatPKR(appData.assets.bank || 0);
     document.getElementById('val-cash').innerText = formatPKR(appData.assets.cash || 0);
     document.getElementById('val-savings').innerText = formatPKR(appData.assets.savings || 0);
@@ -176,35 +188,46 @@ const drawMonthGraphs = (expensesByCategory, dailyInc, dailyExp, daysInMonth) =>
     
     const labels = Array.from({length: daysInMonth}, (_, i) => i + 1);
 
-    // Calculate Daily Net Cashflow (Income - Expense)
-    const dailyNet = [];
+    const picker = document.getElementById('insight-month-picker');
+    const [viewYear, viewMonth] = picker.value.split('-').map(Number);
+    const today = new Date();
+    const isCurrentMonth = today.getFullYear() === viewYear && today.getMonth() === (viewMonth - 1);
+    const currentDay = today.getDate();
+
+    const cumulativeNet = [];
+    let runningTotal = 0;
+    
     for(let i = 0; i < daysInMonth; i++) {
-        dailyNet.push((dailyInc[i] || 0) - (dailyExp[i] || 0));
+        if (isCurrentMonth && (i + 1) > currentDay) {
+            cumulativeNet.push(null); 
+        } else {
+            runningTotal += (dailyInc[i] || 0) - (dailyExp[i] || 0);
+            cumulativeNet.push(runningTotal);
+        }
     }
 
     const barCtx = document.getElementById('monthBarChart').getContext('2d');
     if(charts.monthBar) charts.monthBar.destroy();
     
-    // Single line chart for Daily Net Balance
     charts.monthBar = new Chart(barCtx, { 
         type: 'line', 
         data: { 
             labels: labels, 
             datasets: [ 
                 { 
-                    label: 'Net Daily Cashflow (Income - Expense)', 
-                    data: dailyNet, 
+                    label: 'Cumulative Monthly Cashflow', 
+                    data: cumulativeNet, 
                     borderColor: '#3b82f6', 
                     backgroundColor: 'rgba(59, 130, 246, 0.1)',
                     borderWidth: 2,
                     tension: 0.3,
                     fill: true,
-                    // Dynamic dots: Green for positive/zero days, Red for negative days
-                    pointBackgroundColor: dailyNet.map(val => val >= 0 ? '#10b981' : '#ef4444'),
+                    pointBackgroundColor: cumulativeNet.map(val => val === null ? 'transparent' : (val >= 0 ? '#10b981' : '#ef4444')),
                     pointBorderColor: isDark ? '#1e293b' : '#ffffff',
                     pointBorderWidth: 2,
                     pointRadius: 4,
-                    pointHoverRadius: 6
+                    pointHoverRadius: 6,
+                    spanGaps: false 
                 }
             ] 
         }, 
@@ -212,22 +235,11 @@ const drawMonthGraphs = (expensesByCategory, dailyInc, dailyExp, daysInMonth) =>
             responsive: true, 
             maintainAspectRatio: false, 
             scales: { 
-                y: { 
-                    ticks: { color: textColor }, 
-                    grid: { color: isDark ? '#334155' : '#e5e7eb' } 
-                }, 
-                x: { 
-                    ticks: { color: textColor }, 
-                    grid: { display: false } 
-                } 
+                y: { ticks: { color: textColor }, grid: { color: isDark ? '#334155' : '#e5e7eb' } }, 
+                x: { ticks: { color: textColor }, grid: { display: false } } 
             }, 
-            plugins: { 
-                legend: { labels: { color: textColor } } 
-            },
-            interaction: {
-                mode: 'index',
-                intersect: false,
-            }
+            plugins: { legend: { labels: { color: textColor } } },
+            interaction: { mode: 'index', intersect: false }
         } 
     });
 
@@ -330,7 +342,9 @@ const updateCharts = () => {
     const currentMonth = new Date().getMonth();
     
     const labels = []; 
-    const netData = []; // Array to hold Income minus Expense
+    const netData = []; 
+    const incData = [];
+    const expData = [];
 
     for(let i = 5; i >= 0; i--) {
         let m = currentMonth - i; 
@@ -348,7 +362,8 @@ const updateCharts = () => {
             }
         });
         
-        // Calculate the net cashflow for the month (Income - Expense)
+        incData.push(inc);
+        expData.push(exp);
         netData.push(inc - exp);
     }
 
@@ -361,19 +376,40 @@ const updateCharts = () => {
             labels: labels, 
             datasets: [ 
                 { 
-                    label: 'Net Cashflow (Income - Expense)', 
+                    label: 'Net Cashflow', 
                     data: netData, 
-                    borderColor: '#3b82f6', // Blue line to represent net balance
+                    borderColor: '#3b82f6', 
                     backgroundColor: 'rgba(59, 130, 246, 0.1)', 
                     borderWidth: 2, 
                     tension: 0.3,
                     fill: true,
-                    // Dynamic dots: Green if you saved money that month, Red if you overspent
                     pointBackgroundColor: netData.map(val => val >= 0 ? '#10b981' : '#ef4444'),
                     pointBorderColor: isDark ? '#1e293b' : '#ffffff',
                     pointBorderWidth: 2,
-                    pointRadius: 5,
-                    pointHoverRadius: 7
+                    pointRadius: 4,
+                    pointHoverRadius: 6
+                },
+                { 
+                    label: 'Income', 
+                    data: incData, 
+                    borderColor: '#10b981', 
+                    backgroundColor: 'transparent', 
+                    borderWidth: 2, 
+                    tension: 0.3,
+                    fill: false,
+                    pointBackgroundColor: '#10b981',
+                    pointRadius: 3
+                },
+                { 
+                    label: 'Expense', 
+                    data: expData, 
+                    borderColor: '#ef4444', 
+                    backgroundColor: 'transparent', 
+                    borderWidth: 2, 
+                    tension: 0.3,
+                    fill: false,
+                    pointBackgroundColor: '#ef4444',
+                    pointRadius: 3
                 }
             ] 
         }, 
@@ -381,22 +417,11 @@ const updateCharts = () => {
             responsive: true, 
             maintainAspectRatio: false, 
             scales: { 
-                y: { 
-                    ticks: { color: textColor }, 
-                    grid: { color: isDark ? '#334155' : '#e5e7eb' } 
-                }, 
-                x: { 
-                    ticks: { color: textColor }, 
-                    grid: { display: false } 
-                } 
+                y: { ticks: { color: textColor }, grid: { color: isDark ? '#334155' : '#e5e7eb' } }, 
+                x: { ticks: { color: textColor }, grid: { display: false } } 
             }, 
-            plugins: { 
-                legend: { labels: { color: textColor } } 
-            },
-            interaction: {
-                mode: 'index',
-                intersect: false,
-            }
+            plugins: { legend: { labels: { color: textColor } } },
+            interaction: { mode: 'index', intersect: false }
         } 
     });
 };
@@ -438,25 +463,4 @@ const updateCategories = () => {
 };
 
 /* --- TRANSACTION SUBMISSION --- */
-document.getElementById('form-transaction').addEventListener('submit', (e) => {
-    e.preventDefault();
-    const type = document.getElementById('trans-type').value;
-    const source = document.getElementById('trans-source').value;
-    const amount = Number(document.getElementById('trans-amount').value) || 0;
-
-    if (type === 'income') {
-        appData.assets[source] = (Number(appData.assets[source]) || 0) + amount;
-    } else if (type === 'expense') {
-        appData.assets[source] = (Number(appData.assets[source]) || 0) - amount;
-    } else if (type === 'withdraw') {
-        appData.assets[source] = (Number(appData.assets[source]) || 0) - amount;
-        appData.assets.cash = (Number(appData.assets.cash) || 0) + amount;
-    }
-
-    appData.transactions.push({ 
-        id: Date.now(), 
-        type: type, 
-        source: source, 
-        date: document.getElementById('trans-date').value, 
-        category: document.getElementById('trans-category').value, 
-        descrip
+document.getElementBy
