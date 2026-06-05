@@ -345,127 +345,77 @@ const updateCharts = () => {
 
     const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
     const now = new Date();
-    
-    const labels = []; 
-    const incomeData = [];
-    const expenseData = [];
-    const wealthData = [];
 
-    // Build the 6 month slots with correct year
+    // Build 6 month slots with correct year handling
     const monthSlots = [];
     for (let i = 5; i >= 0; i--) {
         const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
-        monthSlots.push({ m: d.getMonth(), y: d.getFullYear(), label: months[d.getMonth()] });
+        monthSlots.push({ m: d.getMonth(), y: d.getFullYear(), label: months[d.getMonth()], inc: 0, exp: 0 });
     }
 
-    // Gather income/expense per slot
-    monthSlots.forEach(slot => {
-        let inc = 0, exp = 0;
-        appData.transactions.forEach(t => {
-            const d = new Date(t.date);
-            if (d.getMonth() === slot.m && d.getFullYear() === slot.y) {
-                if (t.type === 'income') inc += t.amount;
-                else if (t.type === 'expense') exp += t.amount;
-            }
-        });
-        slot.inc = inc;
-        slot.exp = exp;
+    // Populate income & expense per slot
+    appData.transactions.forEach(t => {
+        const d = new Date(t.date);
+        const slot = monthSlots.find(s => s.m === d.getMonth() && s.y === d.getFullYear());
+        if (!slot) return;
+        if (t.type === 'income') slot.inc += t.amount;
+        else if (t.type === 'expense') slot.exp += t.amount;
     });
 
-    // Reconstruct wealth per month end: start from current wealth minus future net flows
-    const totalNet = monthSlots.reduce((sum, s) => sum + s.inc - s.exp, 0);
-    let runningWealth = Object.values(appData.assets).reduce((a, b) => a + b, 0) - totalNet;
-
-    monthSlots.forEach(slot => {
-        runningWealth += (slot.inc - slot.exp);
-        labels.push(slot.label);
-        incomeData.push(slot.inc);
-        expenseData.push(slot.exp);
-        wealthData.push(runningWealth);
-    });
+    const labels = monthSlots.map(s => s.label);
+    const incomeData = monthSlots.map(s => s.inc);
+    const expenseData = monthSlots.map(s => s.exp);
 
     const barCtx = document.getElementById('mainChart').getContext('2d');
     if(charts.bar) charts.bar.destroy();
     
-    charts.bar = new Chart(barCtx, { 
-        type: 'line', 
-        data: { 
+    charts.bar = new Chart(barCtx, {
+        type: 'bar',
+        data: {
             labels,
-            datasets: [ 
-                { 
-                    label: 'Total Wealth',
-                    data: wealthData,
-                    borderColor: '#8b5cf6',
-                    backgroundColor: 'rgba(139, 92, 246, 0.05)',
-                    borderWidth: 2,
-                    tension: 0.3,
-                    fill: false,
-                    pointBackgroundColor: '#8b5cf6',
-                    pointBorderColor: isDark ? '#1e293b' : '#ffffff',
-                    pointBorderWidth: 2,
-                    pointRadius: 5,
-                    pointHoverRadius: 7,
-                    yAxisID: 'y1'
-                },
-                { 
+            datasets: [
+                {
                     label: 'Income',
                     data: incomeData,
+                    backgroundColor: 'rgba(16, 185, 129, 0.85)',
                     borderColor: '#10b981',
-                    backgroundColor: 'rgba(16, 185, 129, 0.08)',
-                    borderWidth: 2,
-                    tension: 0.3,
-                    fill: false,
-                    pointBackgroundColor: '#10b981',
-                    pointBorderColor: isDark ? '#1e293b' : '#ffffff',
-                    pointBorderWidth: 2,
-                    pointRadius: 5,
-                    pointHoverRadius: 7,
-                    yAxisID: 'y'
+                    borderWidth: 0,
+                    borderRadius: 8,
+                    borderSkipped: false,
                 },
-                { 
+                {
                     label: 'Expense',
                     data: expenseData,
+                    backgroundColor: 'rgba(239, 68, 68, 0.85)',
                     borderColor: '#ef4444',
-                    backgroundColor: 'rgba(239, 68, 68, 0.08)',
-                    borderWidth: 2,
-                    tension: 0.3,
-                    fill: false,
-                    pointBackgroundColor: '#ef4444',
-                    pointBorderColor: isDark ? '#1e293b' : '#ffffff',
-                    pointBorderWidth: 2,
-                    pointRadius: 5,
-                    pointHoverRadius: 7,
-                    yAxisID: 'y'
+                    borderWidth: 0,
+                    borderRadius: 8,
+                    borderSkipped: false,
                 }
-            ] 
-        }, 
-        options: { 
-            responsive: true, 
-            maintainAspectRatio: false, 
-            scales: { 
-                y: { 
-                    position: 'left',
-                    ticks: { color: textColor }, 
-                    grid: { color: isDark ? '#334155' : '#e5e7eb' }
+            ]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            scales: {
+                y: {
+                    ticks: { color: textColor },
+                    grid: { color: isDark ? '#334155' : '#e5e7eb' },
+                    beginAtZero: true
                 },
-                y1: {
-                    position: 'right',
-                    ticks: { color: '#8b5cf6' },
-                    grid: { drawOnChartArea: false }
-                },
-                x: { 
-                    ticks: { color: textColor }, 
-                    grid: { display: false } 
-                } 
-            }, 
-            plugins: { 
-                legend: { labels: { color: textColor } } 
+                x: {
+                    ticks: { color: textColor },
+                    grid: { display: false }
+                }
+            },
+            plugins: {
+                legend: { labels: { color: textColor } }
             },
             interaction: {
                 mode: 'index',
                 intersect: false,
             }
-        } 
+        }
     });
 };
 
