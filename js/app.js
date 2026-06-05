@@ -347,16 +347,22 @@ const updateCharts = () => {
     const currentMonth = new Date().getMonth();
     
     const labels = []; 
-    const netData = []; // Array to hold Income minus Expense
+    const netData = [];
+    const incomeData = [];
+    const expenseData = [];
+    const wealthData = [];
 
+    // Calculate running total wealth up to 5 months ago as starting point
+    let wealthBase = Object.values(appData.assets).reduce((a, b) => a + b, 0);
+    
+    // First pass: gather all 6 months of data
+    const monthsInfo = [];
     for(let i = 5; i >= 0; i--) {
         let m = currentMonth - i; 
         let y = new Date().getFullYear();
         if(m < 0) { m += 12; y -= 1; }
         
-        labels.push(months[m]);
         let inc = 0, exp = 0;
-        
         appData.transactions.forEach(t => {
             const d = new Date(t.date);
             if(d.getMonth() === m && d.getFullYear() === y) { 
@@ -364,10 +370,21 @@ const updateCharts = () => {
                 else if(t.type === 'expense') exp += t.amount; 
             }
         });
-        
-        // Calculate the net cashflow for the month (Income - Expense)
-        netData.push(inc - exp);
+        monthsInfo.push({ label: months[m], inc, exp });
     }
+
+    // Compute cumulative wealth: start from (current wealth - sum of net cashflows)
+    const totalNet = monthsInfo.reduce((sum, mo) => sum + mo.inc - mo.exp, 0);
+    let runningWealth = wealthBase - totalNet;
+
+    monthsInfo.forEach(({ label, inc, exp }) => {
+        runningWealth += (inc - exp);
+        labels.push(label);
+        incomeData.push(inc);
+        expenseData.push(exp);
+        netData.push(inc - exp);
+        wealthData.push(runningWealth);
+    });
 
     const barCtx = document.getElementById('mainChart').getContext('2d');
     if(charts.bar) charts.bar.destroy();
@@ -378,19 +395,64 @@ const updateCharts = () => {
             labels: labels, 
             datasets: [ 
                 { 
-                    label: 'Net Cashflow (Income - Expense)', 
+                    label: 'Total Wealth',
+                    data: wealthData,
+                    borderColor: '#8b5cf6',
+                    backgroundColor: 'rgba(139, 92, 246, 0.05)',
+                    borderWidth: 2,
+                    tension: 0.3,
+                    fill: false,
+                    pointBackgroundColor: '#8b5cf6',
+                    pointBorderColor: isDark ? '#1e293b' : '#ffffff',
+                    pointBorderWidth: 2,
+                    pointRadius: 5,
+                    pointHoverRadius: 7,
+                    yAxisID: 'y1'
+                },
+                { 
+                    label: 'Income',
+                    data: incomeData,
+                    borderColor: '#10b981',
+                    backgroundColor: 'rgba(16, 185, 129, 0.08)',
+                    borderWidth: 2,
+                    tension: 0.3,
+                    fill: false,
+                    pointBackgroundColor: '#10b981',
+                    pointBorderColor: isDark ? '#1e293b' : '#ffffff',
+                    pointBorderWidth: 2,
+                    pointRadius: 5,
+                    pointHoverRadius: 7,
+                    yAxisID: 'y'
+                },
+                { 
+                    label: 'Expense',
+                    data: expenseData,
+                    borderColor: '#ef4444',
+                    backgroundColor: 'rgba(239, 68, 68, 0.08)',
+                    borderWidth: 2,
+                    tension: 0.3,
+                    fill: false,
+                    pointBackgroundColor: '#ef4444',
+                    pointBorderColor: isDark ? '#1e293b' : '#ffffff',
+                    pointBorderWidth: 2,
+                    pointRadius: 5,
+                    pointHoverRadius: 7,
+                    yAxisID: 'y'
+                },
+                { 
+                    label: 'Net Cashflow',
                     data: netData, 
-                    borderColor: '#3b82f6', // Blue line to represent net balance
-                    backgroundColor: 'rgba(59, 130, 246, 0.1)', 
+                    borderColor: '#3b82f6',
+                    backgroundColor: 'rgba(59, 130, 246, 0.08)', 
                     borderWidth: 2, 
                     tension: 0.3,
                     fill: true,
-                    // Dynamic dots: Green if you saved money that month, Red if you overspent
                     pointBackgroundColor: netData.map(val => val >= 0 ? '#10b981' : '#ef4444'),
                     pointBorderColor: isDark ? '#1e293b' : '#ffffff',
                     pointBorderWidth: 2,
                     pointRadius: 5,
-                    pointHoverRadius: 7
+                    pointHoverRadius: 7,
+                    yAxisID: 'y'
                 }
             ] 
         }, 
@@ -399,9 +461,15 @@ const updateCharts = () => {
             maintainAspectRatio: false, 
             scales: { 
                 y: { 
+                    position: 'left',
                     ticks: { color: textColor }, 
                     grid: { color: isDark ? '#334155' : '#e5e7eb' } 
-                }, 
+                },
+                y1: {
+                    position: 'right',
+                    ticks: { color: '#8b5cf6' },
+                    grid: { drawOnChartArea: false }
+                },
                 x: { 
                     ticks: { color: textColor }, 
                     grid: { display: false } 
