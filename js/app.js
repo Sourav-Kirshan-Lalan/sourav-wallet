@@ -19,7 +19,7 @@ document.querySelectorAll('.nav-item').forEach(item => {
     });
 });
 
-/* --- STATE MANAGEMENT & SAFETY NET --- */
+/* --- STATE MANAGEMENT --- */
 const defaultData = {
     assets: { cash: 0, bank: 0, savings: 0, investments: 0, other: 0 },
     transactions: [],
@@ -32,19 +32,7 @@ const categories = {
     withdraw: ['ATM Withdrawal', 'Bank Branch', 'Cheque']
 };
 
-// Bulletproof loader: Prevents crashes if old/incompatible data exists in the browser
-let appData = defaultData;
-try {
-    const saved = JSON.parse(localStorage.getItem('pkrFinDash'));
-    if (saved && saved.assets && typeof saved.assets.cash !== 'undefined') {
-        appData = saved;
-    } else {
-        localStorage.removeItem('pkrFinDash');
-    }
-} catch (e) {
-    localStorage.removeItem('pkrFinDash');
-}
-
+let appData = JSON.parse(localStorage.getItem('pkrFinDash')) || defaultData;
 let charts = {};
 
 const formatPKR = (amount) => new Intl.NumberFormat('en-PK', { style: 'currency', currency: 'PKR', minimumFractionDigits: 0 }).format(amount);
@@ -60,18 +48,10 @@ const getSourceIcon = (source) => {
     return '<i class="fa-solid fa-vault"></i> Asset';
 };
 
-/* --- GLOBAL REFRESH FIX --- */
 const saveData = () => {
     localStorage.setItem('pkrFinDash', JSON.stringify(appData));
-    
-    // Always update the lifetime dashboard and ledger background data
     updateDashboard();
     renderAllTransactions();
-    
-    // FIX: Force the Monthly tab to redraw instantly if the user is currently looking at it
-    if (document.getElementById('view-month-insight').classList.contains('active')) {
-        renderMonthInsights();
-    }
 };
 
 /* --- 1. LIFETIME DASHBOARD UPDATES --- */
@@ -86,7 +66,7 @@ const updateDashboard = () => {
 
     document.getElementById('val-wealth').innerText = formatPKR(totalWealth);
     
-    // Live synced asset metrics
+    // Replaced the duplicated savings logic with live synced asset metrics
     document.getElementById('val-bank').innerText = formatPKR(appData.assets.bank || 0);
     document.getElementById('val-cash').innerText = formatPKR(appData.assets.cash || 0);
     document.getElementById('val-savings').innerText = formatPKR(appData.assets.savings || 0);
@@ -95,11 +75,7 @@ const updateDashboard = () => {
     document.getElementById('val-expense').innerText = formatPKR(lifetimeExpense);
 
     renderRecentTransactions();
-    
-    // Only update the Lifetime charts if the Lifetime tab is active to prevent rendering errors
-    if (document.getElementById('view-dashboard').classList.contains('active')) {
-        updateCharts();
-    }
+    updateCharts();
 };
 
 const renderRecentTransactions = () => {
@@ -192,7 +168,6 @@ const renderMonthInsights = () => {
         categoriesContainer.innerHTML = '<p style="color: var(--text-muted); font-size: 0.9rem; padding: 1rem 0;">No operational expense metrics captured for this month layout.</p>';
     }
 };
-
 const drawMonthGraphs = (expensesByCategory, dailyInc, dailyExp, daysInMonth) => {
     const isDark = document.documentElement.getAttribute('data-theme') === 'dark';
     const textColor = isDark ? '#94a3b8' : '#6b7280';
@@ -200,27 +175,20 @@ const drawMonthGraphs = (expensesByCategory, dailyInc, dailyExp, daysInMonth) =>
     
     const labels = Array.from({length: daysInMonth}, (_, i) => i + 1);
 
-    const picker = document.getElementById('insight-month-picker');
-    const [viewYear, viewMonth] = picker.value.split('-').map(Number);
-    const today = new Date();
-    const isCurrentMonth = today.getFullYear() === viewYear && today.getMonth() === (viewMonth - 1);
-    const currentDay = today.getDate();
-
+    // Calculate CUMULATIVE Daily Net Cashflow
     const cumulativeNet = [];
     let runningTotal = 0;
     
     for(let i = 0; i < daysInMonth; i++) {
-        if (isCurrentMonth && (i + 1) > currentDay) {
-            cumulativeNet.push(null); 
-        } else {
-            runningTotal += (dailyInc[i] || 0) - (dailyExp[i] || 0);
-            cumulativeNet.push(runningTotal);
-        }
+        // Add today's income and subtract today's expense from the running total
+        runningTotal += (dailyInc[i] || 0) - (dailyExp[i] || 0);
+        cumulativeNet.push(runningTotal);
     }
 
     const barCtx = document.getElementById('monthBarChart').getContext('2d');
     if(charts.monthBar) charts.monthBar.destroy();
     
+    // Single line chart for Cumulative Net Balance
     charts.monthBar = new Chart(barCtx, { 
         type: 'line', 
         data: { 
@@ -234,12 +202,12 @@ const drawMonthGraphs = (expensesByCategory, dailyInc, dailyExp, daysInMonth) =>
                     borderWidth: 2,
                     tension: 0.3,
                     fill: true,
-                    pointBackgroundColor: cumulativeNet.map(val => val === null ? 'transparent' : (val >= 0 ? '#10b981' : '#ef4444')),
+                    // Dynamic dots: Green if your running balance is positive, Red if you are in the negative
+                    pointBackgroundColor: cumulativeNet.map(val => val >= 0 ? '#10b981' : '#ef4444'),
                     pointBorderColor: isDark ? '#1e293b' : '#ffffff',
                     pointBorderWidth: 2,
                     pointRadius: 4,
-                    pointHoverRadius: 6,
-                    spanGaps: false 
+                    pointHoverRadius: 6
                 }
             ] 
         }, 
@@ -247,11 +215,22 @@ const drawMonthGraphs = (expensesByCategory, dailyInc, dailyExp, daysInMonth) =>
             responsive: true, 
             maintainAspectRatio: false, 
             scales: { 
-                y: { ticks: { color: textColor }, grid: { color: isDark ? '#334155' : '#e5e7eb' } }, 
-                x: { ticks: { color: textColor }, grid: { display: false } } 
+                y: { 
+                    ticks: { color: textColor }, 
+                    grid: { color: isDark ? '#334155' : '#e5e7eb' } 
+                }, 
+                x: { 
+                    ticks: { color: textColor }, 
+                    grid: { display: false } 
+                } 
             }, 
-            plugins: { legend: { labels: { color: textColor } } },
-            interaction: { mode: 'index', intersect: false }
+            plugins: { 
+                legend: { labels: { color: textColor } } 
+            },
+            interaction: {
+                mode: 'index',
+                intersect: false,
+            }
         } 
     });
 
@@ -266,6 +245,7 @@ const drawMonthGraphs = (expensesByCategory, dailyInc, dailyExp, daysInMonth) =>
         options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { position: isMobile ? 'bottom' : 'right', labels: { color: textColor } } }, cutout: '70%' } 
     });
 };
+
 
 /* --- 3. ALL TRANSACTIONS VIEW --- */
 const renderAllTransactions = () => {
@@ -354,9 +334,7 @@ const updateCharts = () => {
     const currentMonth = new Date().getMonth();
     
     const labels = []; 
-    const netData = []; 
-    const incData = [];
-    const expData = [];
+    const netData = []; // Array to hold Income minus Expense
 
     for(let i = 5; i >= 0; i--) {
         let m = currentMonth - i; 
@@ -374,8 +352,7 @@ const updateCharts = () => {
             }
         });
         
-        incData.push(inc);
-        expData.push(exp);
+        // Calculate the net cashflow for the month (Income - Expense)
         netData.push(inc - exp);
     }
 
@@ -388,40 +365,19 @@ const updateCharts = () => {
             labels: labels, 
             datasets: [ 
                 { 
-                    label: 'Net Cashflow', 
+                    label: 'Net Cashflow (Income - Expense)', 
                     data: netData, 
-                    borderColor: '#3b82f6', 
+                    borderColor: '#3b82f6', // Blue line to represent net balance
                     backgroundColor: 'rgba(59, 130, 246, 0.1)', 
                     borderWidth: 2, 
                     tension: 0.3,
                     fill: true,
+                    // Dynamic dots: Green if you saved money that month, Red if you overspent
                     pointBackgroundColor: netData.map(val => val >= 0 ? '#10b981' : '#ef4444'),
                     pointBorderColor: isDark ? '#1e293b' : '#ffffff',
                     pointBorderWidth: 2,
-                    pointRadius: 4,
-                    pointHoverRadius: 6
-                },
-                { 
-                    label: 'Income', 
-                    data: incData, 
-                    borderColor: '#10b981', 
-                    backgroundColor: 'transparent', 
-                    borderWidth: 2, 
-                    tension: 0.3,
-                    fill: false,
-                    pointBackgroundColor: '#10b981',
-                    pointRadius: 3
-                },
-                { 
-                    label: 'Expense', 
-                    data: expData, 
-                    borderColor: '#ef4444', 
-                    backgroundColor: 'transparent', 
-                    borderWidth: 2, 
-                    tension: 0.3,
-                    fill: false,
-                    pointBackgroundColor: '#ef4444',
-                    pointRadius: 3
+                    pointRadius: 5,
+                    pointHoverRadius: 7
                 }
             ] 
         }, 
@@ -429,11 +385,22 @@ const updateCharts = () => {
             responsive: true, 
             maintainAspectRatio: false, 
             scales: { 
-                y: { ticks: { color: textColor }, grid: { color: isDark ? '#334155' : '#e5e7eb' } }, 
-                x: { ticks: { color: textColor }, grid: { display: false } } 
+                y: { 
+                    ticks: { color: textColor }, 
+                    grid: { color: isDark ? '#334155' : '#e5e7eb' } 
+                }, 
+                x: { 
+                    ticks: { color: textColor }, 
+                    grid: { display: false } 
+                } 
             }, 
-            plugins: { legend: { labels: { color: textColor } } },
-            interaction: { mode: 'index', intersect: false }
+            plugins: { 
+                legend: { labels: { color: textColor } } 
+            },
+            interaction: {
+                mode: 'index',
+                intersect: false,
+            }
         } 
     });
 };
@@ -460,4 +427,101 @@ const updateCategories = () => {
     
     if (type === 'withdraw') {
         sourceLabel.innerText = 'Withdraw From:';
-        sourceSelec
+        sourceSelect.innerHTML = `
+            <option value="bank">Bank Account</option>
+            <option value="savings">Savings Account</option>
+        `;
+    } else {
+        sourceLabel.innerText = type === 'income' ? 'Deposit Into:' : 'Pay From:';
+        sourceSelect.innerHTML = `
+            <option value="bank">Bank Account</option>
+            <option value="cash">Cash in Hand</option>
+            <option value="savings">Savings Account</option>
+        `;
+    }
+};
+
+/* --- TRANSACTION SUBMISSION --- */
+document.getElementById('form-transaction').addEventListener('submit', (e) => {
+    e.preventDefault();
+    const type = document.getElementById('trans-type').value;
+    const source = document.getElementById('trans-source').value;
+    const amount = Number(document.getElementById('trans-amount').value) || 0;
+
+    if (type === 'income') {
+        appData.assets[source] = (Number(appData.assets[source]) || 0) + amount;
+    } else if (type === 'expense') {
+        appData.assets[source] = (Number(appData.assets[source]) || 0) - amount;
+    } else if (type === 'withdraw') {
+        appData.assets[source] = (Number(appData.assets[source]) || 0) - amount;
+        appData.assets.cash = (Number(appData.assets.cash) || 0) + amount;
+    }
+
+    appData.transactions.push({ 
+        id: Date.now(), 
+        type: type, 
+        source: source, 
+        date: document.getElementById('trans-date').value, 
+        category: document.getElementById('trans-category').value, 
+        description: document.getElementById('trans-desc').value, 
+        amount: amount 
+    });
+
+    saveData();
+    closeModal('transactionModal');
+    e.target.reset();
+});
+
+const exportData = () => {
+    const dataStr = JSON.stringify(appData, null, 2);
+    const blob = new Blob([dataStr], { type: "application/json" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `souravs-wallet-backup-${new Date().toISOString().split("T")[0]}.json`;
+    a.click();
+    URL.revokeObjectURL(url);
+};
+
+const importData = (event) => {
+    const file = event.target.files[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = (e) => {
+        try {
+            const imported = JSON.parse(e.target.result);
+            if (!imported.assets || !imported.transactions) {
+                alert("Invalid backup file. Please use a file exported from this app.");
+                return;
+            }
+            if (confirm(`Import ${imported.transactions.length} transactions and asset balances? This will replace your current data.`)) {
+                appData = imported;
+                saveData();
+                alert("Data imported successfully!");
+            }
+        } catch (err) {
+            alert("Failed to read file. Make sure it is a valid JSON backup.");
+        }
+    };
+    reader.readAsText(file);
+    event.target.value = "";
+};
+
+const toggleTheme = () => {
+    const html = document.documentElement;
+    const newTheme = html.getAttribute('data-theme') === 'light' ? 'dark' : 'light';
+    html.setAttribute('data-theme', newTheme);
+    appData.theme = newTheme;
+    localStorage.setItem('pkrFinDash', JSON.stringify(appData));
+    updateCharts();
+};
+
+// Event listener to fix chart resizing on window resize
+window.addEventListener('resize', () => {
+    if(document.getElementById('view-dashboard').classList.contains('active')) updateCharts();
+    if(document.getElementById('view-month-insight').classList.contains('active')) renderMonthInsights();
+});
+
+document.documentElement.setAttribute('data-theme', appData.theme || 'light');
+updateCategories(); 
+updateDashboard();
