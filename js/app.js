@@ -413,7 +413,7 @@ const updateCharts = () => {
                 y: {
                     ticks: { color: textColor },
                     grid: { color: isDark ? '#334155' : '#e5e7eb' },
-                    beginAtZero: false
+                    beginAtZero: true
                 },
                 x: {
                     ticks: { color: textColor },
